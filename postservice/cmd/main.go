@@ -14,13 +14,16 @@ func main() {
 
 	publisher, err := rabbitmq.NewPublisher("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		log.Fatal("Jopa s krolikom")
+		log.Fatal("Rabbit failure")
 	}
 	defer publisher.Close()
 
 	postHandler := handlers.PostHandler{Rabbit: publisher}
 
-	r.Post("/posts/add", postHandler.CreatePostHandler)
+	r.Post("/posts", postHandler.CreatePostHandler)        // POST /posts
+	r.Get("/posts/{id}", postHandler.GetPostHandler)       // GET /posts/{id}
+	r.Put("/posts/{id}", postHandler.UpdatePostHandler)    // PUT /posts/{id}
+	r.Delete("/posts/{id}", postHandler.DeletePostHandler) // DELETE /posts/{id}
 
 	log.Println("Started post service on :8084")
 	if err := http.ListenAndServe(":8084", r); err != nil {

@@ -11,6 +11,8 @@ import (
 const (
 	exchangeName      = "posts"
 	routingKeyCreated = "post.created"
+	routingKeyUpdated = "post.updated"
+	routingKeyDeleted = "post.deleted"
 )
 
 type Publisher struct {
