@@ -3,8 +3,12 @@ package main
 import (
 	"archlab3/postservice/internal/db/rabbitmq"
 	"archlab3/postservice/internal/handlers"
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -12,21 +16,45 @@ import (
 func main() {
 	r := chi.NewRouter()
 
+	// Initialize RabbitMQ publisher
 	publisher, err := rabbitmq.NewPublisher("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		log.Fatal("Rabbit failure")
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
 	defer publisher.Close()
 
-	postHandler := handlers.PostHandler{Rabbit: publisher}
+	// Initialize post handler with Redis cache
+	postHandler := handlers.NewPostHandler(publisher)
 
-	r.Post("/posts", postHandler.CreatePostHandler)        // POST /posts
-	r.Get("/posts/{id}", postHandler.GetPostHandler)       // GET /posts/{id}
-	r.Put("/posts/{id}", postHandler.UpdatePostHandler)    // PUT /posts/{id}
-	r.Delete("/posts/{id}", postHandler.DeletePostHandler) // DELETE /posts/{id}
+	// Set up routes
+	r.Post("/posts", postHandler.CreatePostHandler)
+	r.Get("/posts/{id}", postHandler.GetPostHandler)
+	r.Put("/posts/{id}", postHandler.UpdatePostHandler)
+	r.Delete("/posts/{id}", postHandler.DeletePostHandler)
 
-	log.Println("Started post service on :8084")
-	if err := http.ListenAndServe(":8084", r); err != nil {
-		log.Fatal(err)
+	// Start server
+	server := &http.Server{
+		Addr:    ":8084",
+		Handler: r,
 	}
+
+	// Graceful shutdown
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Println("Starting post service on :8084")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	<-done
+	log.Println("Server is shutting down...")
+
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Printf("Error during server shutdown: %v", err)
+	}
+
+	log.Println("Server stopped")
 }
