@@ -11,11 +11,17 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	postsStorage = make(map[int]models.Post)
-	lastID       = 0
+	postsStorage        = make(map[int]models.Post)
+	lastID              = 0
+	postsCreatedCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "twitter2_posts_created_total",
+		Help: "Total number of created posts",
+	})
 )
 
 type PostHandler struct {
@@ -58,7 +64,7 @@ func (h *PostHandler) CreatePostHandler(w http.ResponseWriter, r *http.Request) 
 	if err := h.Cache.Set(r.Context(), cacheKey, post); err != nil {
 		log.Printf("Failed to cache post: %v", err)
 	}
-
+	postsCreatedCounter.Inc()
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(post)
 }

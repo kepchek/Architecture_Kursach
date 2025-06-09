@@ -11,6 +11,8 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -26,11 +28,21 @@ func main() {
 	// Initialize post handler with Redis cache
 	postHandler := handlers.NewPostHandler(publisher)
 
+	httpRequestsTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total HTTP requests",
+		},
+		[]string{"method", "endpoint"},
+	)
+	prometheus.MustRegister(httpRequestsTotal)
+
 	// Set up routes
 	r.Post("/posts", postHandler.CreatePostHandler)
 	r.Get("/posts/{id}", postHandler.GetPostHandler)
 	r.Put("/posts/{id}", postHandler.UpdatePostHandler)
 	r.Delete("/posts/{id}", postHandler.DeletePostHandler)
+	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	// Start server
 	server := &http.Server{

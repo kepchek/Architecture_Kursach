@@ -1,0 +1,10 @@
+route:
+  receiver: "email-notifications"
+receivers:
+  - name: "email-notifications"
+    email_configs:
+      - to: "kpchk999@gmail.com"
+        from: "alertmanager@twitter2.com"
+        smarthost: "smtp.example.com:587"
+        auth_username: "user"
+        auth_password: "password"
